@@ -9,7 +9,6 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -21,8 +20,6 @@ import static net.ralphpina.drawwithme.DrawingMqttClient.DrawingAction.TOUCH_MOV
 import static net.ralphpina.drawwithme.DrawingMqttClient.DrawingAction.TOUCH_UP;
 
 public class DrawingView extends View implements DrawingMqttClient.MqttDrawerListener {
-
-    private static final String TAG = "DrawingView";
 
     private final static int[] COLORS          = new int[]{Color.BLACK, Color.BLUE, Color.CYAN, Color.DKGRAY, Color.MAGENTA, Color.RED, Color.YELLOW};
     private static final float TOUCH_TOLERANCE = 4;
@@ -94,8 +91,6 @@ public class DrawingView extends View implements DrawingMqttClient.MqttDrawerLis
                           0,
                           0,
                           bitmapPaint);
-
-        Log.e(TAG, "=== onDraw() === painters.values().size() " + painters.values().size());
         for (Painter painter : painters.values()) {
             canvas.drawPath(painter.path,
                             painter.paint);
@@ -135,18 +130,6 @@ public class DrawingView extends View implements DrawingMqttClient.MqttDrawerLis
     }
 
     @Override
-    public void friendDisconnected(String friend) {
-        Log.e(TAG,
-              "=== friendDisconnected() === friend = " + friend);
-        Log.e(TAG,
-              "=== friendDisconnected() === painters.containsKey(friend) = " + painters.containsKey(friend));
-        if (painters.containsKey(friend)) {
-            painters.remove(friend);
-            invalidate();
-        }
-    }
-
-    @Override
     public boolean onTouchEvent(MotionEvent event) {
         float x = event.getX();
         float y = event.getY();
@@ -180,7 +163,6 @@ public class DrawingView extends View implements DrawingMqttClient.MqttDrawerLis
 
     private void addToPaintersIfNeeded(String userId) {
         if (!painters.containsKey(userId)) {
-            Log.e(TAG, "=== addToPaintersIfNeeded() === userId = " + userId);
             painters.put(userId,
                          new Painter(userId));
         }
@@ -188,11 +170,12 @@ public class DrawingView extends View implements DrawingMqttClient.MqttDrawerLis
 
     public class Painter {
 
-        private float mX, mY;
-        private Path  path;
-        private Paint paint;
-        private Path  circlePath;
-        private Paint circlePaint;
+        private       float           mX;
+        private       float           mY;
+        private       Path            path;
+        private final Paint           paint;
+        private       Path            circlePath;
+        private final Paint           circlePaint;
 
         public Painter(String userId) {
             final boolean self = userId.equals(mqttClient.getClientId());

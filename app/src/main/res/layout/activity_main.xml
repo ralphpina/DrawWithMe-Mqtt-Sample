@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="net.ralphpina.drawwithme.DrawingActivity">
+    tools:context="net.ralphpina.drawwithme.MainActivity">
 
     <TextView
         android:id="@+id/name_status"

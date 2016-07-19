@@ -92,7 +92,7 @@ public class DrawingMqttClient {
             if (mqttAndroidClient.isConnected()) {
                 return;
             }
-        } catch (NullPointerException ignore) {
+        } catch (NullPointerException|IllegalArgumentException ignore) {
         }
 
         this.drawerListener = drawerListener;
@@ -279,9 +279,6 @@ public class DrawingMqttClient {
                     final String[] payload = parseConnectionStatus(new String(message.getPayload()));
                     listener.onUserConnection(payload[1],
                                               payload[2]);
-                    if (!payload[0].equals(clientId) && payload[2].equals(DISCONNECTED)) {
-                        drawerListener.friendDisconnected(payload[0]);
-                    }
                 } else if (DRAWING_TOPIC.equals(topic)) {
                     final String[] payload = parseDrawingAction(new String(message.getPayload()));
                     if (payload[0].equals(clientId)) {
@@ -324,7 +321,5 @@ public class DrawingMqttClient {
         void touchMove(String userId, float x, float y);
 
         void touchUp(String userId);
-
-        void friendDisconnected(String userId);
     }
 }

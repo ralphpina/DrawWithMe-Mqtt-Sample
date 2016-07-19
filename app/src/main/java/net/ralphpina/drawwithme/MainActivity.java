@@ -2,21 +2,15 @@ package net.ralphpina.drawwithme;
 
 import android.annotation.SuppressLint;
 import android.content.DialogInterface;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
-
-import java.util.ArrayList;
-import java.util.UUID;
 
 import static net.ralphpina.drawwithme.DrawingMqttClient.ConnectionStatus.CONNECTED;
 import static net.ralphpina.drawwithme.DrawingMqttClient.ConnectionStatus.DISCONNECTED;
@@ -30,6 +24,7 @@ public class MainActivity extends AppCompatActivity implements DrawingMqttClient
     private String connectedStatus = "";
 
     private DrawingView       drawingView;
+    private RecyclerView      recyclerView;
     private TextView          nameAndStatus;
     private HistoryAdapter    adapter;
     private DrawingMqttClient client;
@@ -46,16 +41,15 @@ public class MainActivity extends AppCompatActivity implements DrawingMqttClient
         drawingView = (DrawingView) findViewById(R.id.drawing_view);
         nameAndStatus = (TextView) findViewById(R.id.name_status);
 
-        final RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
-        final RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this);
+        recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+        final LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        layoutManager.setStackFromEnd(true);
         recyclerView.setLayoutManager(layoutManager);
 
-        adapter = new HistoryAdapter(new ArrayList<String>());
+        adapter = new HistoryAdapter();
         recyclerView.setAdapter(adapter);
 
         drawingView.setMqttClient(client);
-
-        enterNameDialog();
     }
 
     @Override
@@ -63,6 +57,8 @@ public class MainActivity extends AppCompatActivity implements DrawingMqttClient
         super.onResume();
         if (!"".equals(name)) {
             client.connect(drawingView);
+        } else {
+            enterNameDialog();
         }
     }
 
@@ -138,9 +134,9 @@ public class MainActivity extends AppCompatActivity implements DrawingMqttClient
 
     @Override
     public void onUserConnection(String user, @DrawingMqttClient.ConnectionStatus String connectedStatus) {
-        Log.e(TAG,
-              "=== onUserConnected === user = " + user + " connectionStatus = " + connectedStatus);
         adapter.add(user + " - " + connectedStatus);
+        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+
     }
 
     @Override
