@@ -39,3 +39,4 @@ captures/
 
 # Keystore files
 *.jks
+/app/src/main/java/net/ralphpina/drawwithme/.DS_Store

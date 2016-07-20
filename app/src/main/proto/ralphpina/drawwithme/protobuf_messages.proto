@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package ralphpina.drawwithme;
+
+option java_package = "net.ralphpina.drawwithme";
+
+message Presence {
+    enum ConnectionStatus {
+        DISCONNECTED = 0;
+        CONNECTED = 1;
+    }
+
+    ConnectionStatus active_status = 1;
+    string client_id = 2;
+    string user_name = 3;
+}
+
+message DrawAction {
+    enum DrawingAction {
+        TOUCH_DOWN = 0;
+        TOUCH_MOVE = 1;
+        TOUCH_UP = 2;
+    }
+
+    DrawingAction drawing_action = 1;
+    string client_id = 2;
+    float x = 3;
+    float y = 4;
+}

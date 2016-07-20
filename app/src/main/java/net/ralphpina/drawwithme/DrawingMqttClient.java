@@ -4,8 +4,10 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
-import android.support.annotation.StringDef;
 import android.util.Log;
+
+import net.ralphpina.drawwithme.ProtobufMessages.DrawAction;
+import net.ralphpina.drawwithme.ProtobufMessages.Presence;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -16,33 +18,16 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.UUID;
 
-import static net.ralphpina.drawwithme.DrawingMqttClient.ConnectionStatus.DISCONNECTED;
+import static net.ralphpina.drawwithme.ProtobufMessages.DrawAction.TOUCH_DOWN;
+import static net.ralphpina.drawwithme.ProtobufMessages.DrawAction.TOUCH_MOVE;
+import static net.ralphpina.drawwithme.ProtobufMessages.DrawAction.TOUCH_UP;
+import static net.ralphpina.drawwithme.ProtobufMessages.Presence.DISCONNECTED;
 
 public class DrawingMqttClient {
 
     private static final String TAG = "DrawingMqttClient";
-
-    @Retention(RetentionPolicy.CLASS)
-    @StringDef({ConnectionStatus.CONNECTED,
-            ConnectionStatus.DISCONNECTED})
-    public @interface ConnectionStatus {
-        String CONNECTED    = "Connected";
-        String DISCONNECTED = "Disconnected";
-    }
-
-    @Retention(RetentionPolicy.CLASS)
-    @StringDef({DrawingAction.TOUCH_DOWN,
-            DrawingAction.TOUCH_MOVE,
-            DrawingAction.TOUCH_UP})
-    public @interface DrawingAction {
-        String TOUCH_DOWN = "touch_down";
-        String TOUCH_MOVE = "touch_move";
-        String TOUCH_UP   = "touch_up";
-    }
 
     private static final String CLIENT_ID     = "client_id_pref";
     private final static String SERVER_URI    = "tcp://iot.eclipse.org:1883";
@@ -92,15 +77,21 @@ public class DrawingMqttClient {
             if (mqttAndroidClient.isConnected()) {
                 return;
             }
-        } catch (NullPointerException|IllegalArgumentException ignore) {
+        } catch (NullPointerException | IllegalArgumentException ignore) {
         }
 
         this.drawerListener = drawerListener;
         MqttConnectOptions mqttConnectOptions = new MqttConnectOptions();
         mqttConnectOptions.setAutomaticReconnect(true);
         mqttConnectOptions.setCleanSession(false);
+
+        Presence presence = new Presence();
+        presence.clientId = clientId;
+        presence.userName = statusListener.getUserName();
+        presence.activeStatus = DISCONNECTED;
+
         mqttConnectOptions.setWill(STATUS_TOPIC,
-                                   DISCONNECTED.getBytes(),
+                                   Presence.toByteArray(presence),
                                    0,
                                    false);
 
@@ -203,29 +194,32 @@ public class DrawingMqttClient {
 
     // ===== PUBLISHING ============================================================================
 
-    public void publishConnectedStatus(@ConnectionStatus String status) {
-        Log.e(TAG,
-              "=== publishConnectedStatus() === status = " + status);
-        String payload = encodeConnectionStatus(status);
+    public void publishConnectedStatus(int activeStatus) {
+        Presence presence = new Presence();
+        presence.clientId = clientId;
+        presence.userName = statusListener.getUserName();
+        presence.activeStatus = activeStatus;
         publish(STATUS_TOPIC,
-                payload);
+                Presence.toByteArray(presence));
     }
 
-    public void publishDrawingAction(@DrawingAction String action, float x, float y) {
-        String payload = encodeDrawingAction(action,
-                                             x,
-                                             y);
+    public void publishDrawingAction(int action, float x, float y) {
+        DrawAction drawAction = new DrawAction();
+        drawAction.clientId = clientId;
+        drawAction.drawingAction = action;
+        drawAction.x = x;
+        drawAction.y = y;
+
         publish(DRAWING_TOPIC,
-                payload);
+                DrawAction.toByteArray(drawAction));
     }
 
-    private void publish(String topic, String payload) {
+    private void publish(String topic, byte[] payload) {
         try {
-            MqttMessage message = new MqttMessage();
-            message.setPayload(payload.getBytes());
-            message.setRetained(true);
             mqttAndroidClient.publish(topic,
-                                      message);
+                                      payload,
+                                      0,
+                                      true);
             if (!mqttAndroidClient.isConnected()) {
                 statusListener.onDisconnect();
             }
@@ -236,22 +230,6 @@ public class DrawingMqttClient {
         }
     }
 
-    private String encodeConnectionStatus(@ConnectionStatus String status) {
-        return clientId + "%2B" + statusListener.getUserName() + "%2B" + status;
-    }
-
-    private String[] parseConnectionStatus(String payload) {
-        return payload.split("%2B");
-    }
-
-    private String encodeDrawingAction(@DrawingAction String action, float x, float y) {
-        return clientId + "%23" + action + "%23" + Float.toString(x) + "%23" + Float.toString(y);
-    }
-
-    private String[] parseDrawingAction(String payload) {
-        return payload.split("%23");
-    }
-
     // ===== CALL BACK =============================================================================
 
     @NonNull
@@ -260,8 +238,6 @@ public class DrawingMqttClient {
             @Override
             public void connectComplete(boolean reconnect, String serverURI) {
                 listener.onConnect();
-                Log.e(TAG,
-                      "=== getMqttCallback() connectComplete === reconnect = " + reconnect);
                 if (reconnect) {
                     // Because Clean Session is true, we need to re-subscribe
                     subscribeToTopics();
@@ -276,24 +252,29 @@ public class DrawingMqttClient {
             @Override
             public void messageArrived(String topic, MqttMessage message) throws Exception {
                 if (STATUS_TOPIC.equals(topic)) {
-                    final String[] payload = parseConnectionStatus(new String(message.getPayload()));
-                    listener.onUserConnection(payload[1],
-                                              payload[2]);
+                    Presence presence = Presence.parseFrom(message.getPayload());
+                    listener.onUserConnection(presence.userName,
+                                              presence.activeStatus);
                 } else if (DRAWING_TOPIC.equals(topic)) {
-                    final String[] payload = parseDrawingAction(new String(message.getPayload()));
-                    if (payload[0].equals(clientId)) {
+
+                    DrawAction drawAction = DrawAction.parseFrom(message.getPayload());
+                    if (drawAction.clientId.equals(clientId)) {
                         return;
                     }
-                    if (DrawingAction.TOUCH_DOWN.equals(payload[1])) {
-                        drawerListener.touchDown(payload[0],
-                                                 Float.parseFloat(payload[2]),
-                                                 Float.parseFloat(payload[3]));
-                    } else if (DrawingAction.TOUCH_MOVE.equals(payload[1])) {
-                        drawerListener.touchMove(payload[0],
-                                                 Float.parseFloat(payload[2]),
-                                                 Float.parseFloat(payload[3]));
-                    } else if (DrawingAction.TOUCH_UP.equals(payload[1])) {
-                        drawerListener.touchUp(payload[0]);
+                    switch (drawAction.drawingAction) {
+                        case TOUCH_DOWN:
+                            drawerListener.touchDown(drawAction.clientId,
+                                                     drawAction.x,
+                                                     drawAction.y);
+                            break;
+                        case TOUCH_MOVE:
+                            drawerListener.touchMove(drawAction.clientId,
+                                                     drawAction.x,
+                                                     drawAction.y);
+                            break;
+                        case TOUCH_UP:
+                            drawerListener.touchUp(drawAction.clientId);
+                            break;
                     }
                 }
             }
@@ -310,7 +291,7 @@ public class DrawingMqttClient {
 
         void onDisconnect();
 
-        void onUserConnection(String user, String connectedStatus);
+        void onUserConnection(String user, int connectedStatus);
 
         String getUserName();
     }

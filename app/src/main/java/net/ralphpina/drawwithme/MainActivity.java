@@ -12,12 +12,10 @@ import android.text.TextWatcher;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import static net.ralphpina.drawwithme.DrawingMqttClient.ConnectionStatus.CONNECTED;
-import static net.ralphpina.drawwithme.DrawingMqttClient.ConnectionStatus.DISCONNECTED;
-
 public class MainActivity extends AppCompatActivity implements DrawingMqttClient.MqttStatusListener {
 
-    private static final String TAG = "DrawingActivity";
+    private static final String CONNECTED    = "Connected";
+    private static final String DISCONNECTED = "Disonnected";
 
     private AlertDialog dialog;
     private String name            = "";
@@ -33,7 +31,6 @@ public class MainActivity extends AppCompatActivity implements DrawingMqttClient
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
 
         client = new DrawingMqttClient(this,
                                        this);
@@ -119,7 +116,7 @@ public class MainActivity extends AppCompatActivity implements DrawingMqttClient
     public void onConnect() {
         if (!CONNECTED.equals(connectedStatus)) {
             connectedStatus = CONNECTED;
-            client.publishConnectedStatus(CONNECTED);
+            client.publishConnectedStatus(ProtobufMessages.Presence.CONNECTED);
             updateConnectedStatus();
         }
     }
@@ -133,8 +130,10 @@ public class MainActivity extends AppCompatActivity implements DrawingMqttClient
     }
 
     @Override
-    public void onUserConnection(String user, @DrawingMqttClient.ConnectionStatus String connectedStatus) {
-        adapter.add(user + " - " + connectedStatus);
+    public void onUserConnection(String user, int connectedStatus) {
+        adapter.add(
+                user + " - " + (connectedStatus == ProtobufMessages.Presence.CONNECTED ? CONNECTED
+                                                                                       : DISCONNECTED));
         recyclerView.scrollToPosition(adapter.getItemCount() - 1);
 
     }

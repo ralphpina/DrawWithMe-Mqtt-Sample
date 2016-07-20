@@ -15,9 +15,9 @@ import android.view.View;
 import java.util.HashMap;
 import java.util.Map;
 
-import static net.ralphpina.drawwithme.DrawingMqttClient.DrawingAction.TOUCH_DOWN;
-import static net.ralphpina.drawwithme.DrawingMqttClient.DrawingAction.TOUCH_MOVE;
-import static net.ralphpina.drawwithme.DrawingMqttClient.DrawingAction.TOUCH_UP;
+import static net.ralphpina.drawwithme.ProtobufMessages.DrawAction.TOUCH_DOWN;
+import static net.ralphpina.drawwithme.ProtobufMessages.DrawAction.TOUCH_MOVE;
+import static net.ralphpina.drawwithme.ProtobufMessages.DrawAction.TOUCH_UP;
 
 public class DrawingView extends View implements DrawingMqttClient.MqttDrawerListener {
 
